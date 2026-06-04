@@ -1,6 +1,6 @@
 // Service worker — offline-first app shell cache.
 // Bump CACHE on any asset change to force clients to refresh.
-const CACHE = 'blockblast-v8';
+const CACHE = 'blockblast-v9';
 const ASSETS = [
   '.',
   'index.html',
@@ -18,7 +18,11 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()),
+    caches.open(CACHE).then(async (cache) => {
+      // tolerant precache: don't let one missing asset block the whole update
+      await Promise.allSettled(ASSETS.map((u) => cache.add(u)));
+      await self.skipWaiting();
+    }),
   );
 });
 

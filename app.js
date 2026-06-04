@@ -852,8 +852,18 @@ function init() {
   maybeShowInstallHint();
 
   if ('serviceWorker' in navigator) {
+    // When a new service worker takes control (i.e. a fresh deploy), reload once
+    // so the app runs the new code immediately instead of lagging a launch.
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) window.location.reload();
+      hadController = true;
+    });
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
+      navigator.serviceWorker
+        .register('sw.js', { updateViaCache: 'none' }) // always check sw.js fresh
+        .then((reg) => reg.update())
+        .catch(() => {});
     });
   }
 }
