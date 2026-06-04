@@ -31,7 +31,7 @@ const LEADERBOARD_URL = 'https://block-blast-scores.mr-khaykin.workers.dev';
 
 // Bump this with sw.js CACHE on every deploy. Shown in Settings so you can
 // confirm at a glance which version a phone is actually running.
-const APP_VERSION = 'v10';
+const APP_VERSION = 'v11';
 
 const store = {
   get(key, fallback) {
@@ -803,9 +803,6 @@ function init() {
   }
 
   $('theme-btn').addEventListener('click', toggleTheme);
-  $('restart-btn').addEventListener('click', () => {
-    newGame();
-  });
   $('play-again').addEventListener('click', newGame);
 
   // settings panel
@@ -818,6 +815,11 @@ function init() {
   $('settings-done').addEventListener('click', () => {
     settingsPanel.classList.add('hidden');
     settingsPanel.setAttribute('aria-hidden', 'true');
+  });
+  $('new-game-btn').addEventListener('click', () => {
+    settingsPanel.classList.add('hidden');
+    settingsPanel.setAttribute('aria-hidden', 'true');
+    newGame();
   });
   $('choose-photo').addEventListener('click', () => $('photo-input').click());
   $('photo-input').addEventListener('change', (e) => {

@@ -33,7 +33,7 @@
         <div class="current-score" id="score" role="status" aria-live="polite" aria-label="Score">0</div>
       </div>
 
-      <button id="restart-btn" class="icon-btn" aria-label="New game" title="New game">↻</button>
+      <span class="header-spacer" aria-hidden="true"></span>
     </header>
 
     <main id="main">
@@ -90,6 +90,11 @@
       </div>
       <p class="setting-hint">Overlay a photo from your camera roll onto the blocks.</p>
       <input type="file" id="photo-input" accept="image/*" hidden />
+
+      <div class="setting-row">
+        <span class="setting-label">New game</span>
+        <button id="new-game-btn" class="setting-btn subtle">Start over</button>
+      </div>
 
       <div id="leaderboard-section" class="leaderboard-section hidden">
         <div class="setting-row">

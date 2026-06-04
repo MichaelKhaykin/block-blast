@@ -416,9 +416,13 @@ async function main() {
         note: (q ? q.textContent : '') + ' / ' + (sign ? sign.textContent : ''),
         hasPhotoInput: !!document.getElementById('photo-input'),
         version: document.getElementById('version-line').textContent,
+        noRestartBtn: !document.getElementById('restart-btn'),
+        hasNewGameBtn: !!document.getElementById('new-game-btn'),
       };
     }`);
     check(ui.settingsOpen, 'settings panel opens from the gear button');
+    check(ui.noRestartBtn, 'header reload button is gone');
+    check(ui.hasNewGameBtn, 'New game lives in settings instead');
     check(ui.note.includes('Want a break from the ads?') && ui.note.includes('Love, Michael'), `the note is present (got "${ui.note.trim()}")`);
     check(ui.hasPhotoInput, 'camera-roll photo picker present');
     check(/^Block Blast v\d+$/.test(ui.version), `version shown in settings (got "${ui.version}")`);
