@@ -543,6 +543,13 @@ html[data-theme='light'] .combo-pop {
 .setting-btn.subtle {
   opacity: 0.7;
 }
+.version-line {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
 .setting-hint {
   font-size: 13px;
   color: var(--text-dim);

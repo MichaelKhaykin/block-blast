@@ -29,6 +29,10 @@ const NAME_KEY = 'blockblast.name.v1';
 // leaderboard feature stays hidden and inert.
 const LEADERBOARD_URL = 'https://block-blast-scores.mr-khaykin.workers.dev';
 
+// Bump this with sw.js CACHE on every deploy. Shown in Settings so you can
+// confirm at a glance which version a phone is actually running.
+const APP_VERSION = 'v10';
+
 const store = {
   get(key, fallback) {
     try {
@@ -779,6 +783,8 @@ function maybeShowInstallHint() {
 function init() {
   computeLayout();
   buildBoard();
+  const versionLine = $('version-line');
+  if (versionLine) versionLine.textContent = `Block Blast ${APP_VERSION}`;
   applyTheme(store.get(THEME_KEY, 'dark'));
   const savedPhoto = store.get(PHOTO_KEY, null);
   if (savedPhoto) applyPhoto(savedPhoto);

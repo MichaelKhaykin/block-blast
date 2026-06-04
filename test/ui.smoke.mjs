@@ -415,11 +415,13 @@ async function main() {
         settingsOpen: !s.classList.contains('hidden'),
         note: (q ? q.textContent : '') + ' / ' + (sign ? sign.textContent : ''),
         hasPhotoInput: !!document.getElementById('photo-input'),
+        version: document.getElementById('version-line').textContent,
       };
     }`);
     check(ui.settingsOpen, 'settings panel opens from the gear button');
     check(ui.note.includes('Want a break from the ads?') && ui.note.includes('Love, Michael'), `the note is present (got "${ui.note.trim()}")`);
     check(ui.hasPhotoInput, 'camera-roll photo picker present');
+    check(/^Block Blast v\d+$/.test(ui.version), `version shown in settings (got "${ui.version}")`);
     fs.writeFileSync('/tmp/bb-settings.png', Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
 
     // show the game-over card to screenshot the note
