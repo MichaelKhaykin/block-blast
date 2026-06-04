@@ -164,9 +164,10 @@ html[data-theme='light'] #theme-btn .icon-moon {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-top: 4px;
+  /* center the message-bar + board + tray as one cluster so leftover vertical
+     space is balanced instead of dumped below the tray */
+  justify-content: center;
+  gap: clamp(6px, 1.6vh, 16px);
 }
 
 #board-wrap {
@@ -259,25 +260,6 @@ html[data-theme='light'] #theme-btn .icon-moon {
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85),
     0 0 calc(var(--bs) * 0.4) var(--c);
 }
-.cell.ghost-bad {
-  background: #ff4d4d;
-  opacity: 0.4;
-  outline: 2px dashed rgba(255, 255, 255, 0.9);
-  outline-offset: -3px;
-}
-/* non-color cue so "can't place" reads without relying on red */
-.cell.ghost-bad::after {
-  content: '✕';
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: rgba(255, 255, 255, 0.95);
-  font-size: calc(var(--bs) * 0.5);
-  font-weight: 800;
-  line-height: 1;
-}
-
 /* ----------------------------------------------------------------- tray ---- */
 #tray {
   width: 100%;
@@ -296,6 +278,10 @@ html[data-theme='light'] #theme-btn .icon-moon {
   width: 100%;
   height: 100%;
   min-height: calc(var(--tcell) * 5);
+}
+.tray-slot.has-piece {
+  cursor: grab;
+  touch-action: none; /* whole slot is the grab area; never scrolls the page */
 }
 
 .tray-piece {
@@ -343,7 +329,6 @@ html[data-theme='light'] #theme-btn .icon-moon {
   display: grid;
   gap: var(--gap);
   will-change: transform;
-  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.4));
 }
 .drag-piece .blk {
   width: var(--cell);
@@ -359,20 +344,21 @@ html[data-theme='light'] #theme-btn .icon-moon {
 }
 
 /* --------------------------------------------------------- combo popups ---- */
-#combo-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 40;
+/* reserved band above the board where combo / clear messages appear */
+#message-bar {
+  width: 100%;
+  height: clamp(30px, 5.5vh, 46px);
+  position: relative;
   display: grid;
   place-items: center;
+  pointer-events: none;
 }
 .combo-pop {
   position: absolute;
   font-weight: 800;
-  font-size: clamp(26px, 8vw, 40px);
+  font-size: clamp(20px, 6.4vw, 32px);
   color: #fff;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 18px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 16px rgba(255, 255, 255, 0.45);
   -webkit-text-stroke: 2px rgba(0, 0, 0, 0.38);
   white-space: nowrap;
   animation: comboPop 1.1s ease forwards;
@@ -388,11 +374,11 @@ html[data-theme='light'] .combo-pop {
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 0 14px rgba(255, 255, 255, 0.55);
 }
 @keyframes comboPop {
-  0% { transform: translateY(20px) scale(0.4) rotate(-8deg); opacity: 0; }
-  20% { transform: translateY(0) scale(1.1) rotate(-2deg); opacity: 1; }
+  0% { transform: translateY(10px) scale(0.4) rotate(-6deg); opacity: 0; }
+  20% { transform: translateY(0) scale(1.12) rotate(-2deg); opacity: 1; }
   35% { transform: translateY(0) scale(1) rotate(0deg); }
-  75% { transform: translateY(0) scale(1); opacity: 1; }
-  100% { transform: translateY(-40px) scale(0.9); opacity: 0; }
+  72% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-12px) scale(0.92); opacity: 0; }
 }
 
 /* --------------------------------------------------------------- overlay --- */

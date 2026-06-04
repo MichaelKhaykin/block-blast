@@ -11,6 +11,7 @@ import {
   findClears,
   applyClears,
   hasAnyMove,
+  canPlaceSequence,
   scoreMove,
   lineBonus,
   comboMultiplier,
@@ -119,6 +120,35 @@ ok(
   oneOpen[4][4] = null;
   ok(hasAnyMove(oneOpen, [pieceByName('mono')]), 'single hole fits a mono');
   ok(!hasAnyMove(oneOpen, [pieceByName('square2')]), 'single hole does not fit a 2x2');
+}
+
+// --- canPlaceSequence (guaranteed-solvable hand) -------------------------
+{
+  const empty = emptyBoard();
+  ok(
+    canPlaceSequence(empty, [pieceByName('mono'), pieceByName('square2'), pieceByName('bigL')]),
+    'empty board: any 3 pieces are placeable',
+  );
+
+  const full = emptyBoard();
+  for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) full[r][c] = '#fff';
+  ok(!canPlaceSequence(full, [pieceByName('mono')]), 'full board: a mono is not placeable');
+  ok(canPlaceSequence(full, []), 'empty hand is trivially placeable');
+
+  // clear-aware: board full except (0,0). Placing a mono there clears row 0 and
+  // column 0, freeing space for a second mono — only solvable BECAUSE of clears.
+  const only00 = cloneBoard(full);
+  only00[0][0] = null;
+  ok(
+    canPlaceSequence(only00, [pieceByName('mono'), pieceByName('mono')]),
+    'clear-aware: two monos solvable when the first clears a line',
+  );
+
+  // two isolated holes, no 2x2 space anywhere -> a square can't be placed
+  const twoHoles = cloneBoard(full);
+  twoHoles[0][0] = null;
+  twoHoles[7][7] = null;
+  ok(!canPlaceSequence(twoHoles, [pieceByName('square2')]), 'no 2x2 space: square2 unplaceable');
 }
 
 // --- scoring -------------------------------------------------------------

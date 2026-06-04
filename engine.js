@@ -260,6 +260,38 @@ export function hasAnyMove(board, pieces) {
   return false;
 }
 
+// Can ALL of the given pieces be placed on the board in SOME order, accounting
+// for the space that line-clears free up between placements? Returns true as
+// soon as one complete sequence is found (fast for the common, solvable case).
+// `cap` bounds the search so a pathological board can never hang the UI — if the
+// cap is hit we conservatively return true (treat the set as acceptable).
+export function canPlaceSequence(board, pieces, cap = 120000) {
+  const list = pieces.filter(Boolean);
+  const counter = { n: 0, cap };
+  return placeAll(board, list, counter);
+}
+
+function placeAll(board, remaining, counter) {
+  if (remaining.length === 0) return true;
+  const size = board.length;
+  for (let i = 0; i < remaining.length; i++) {
+    const piece = remaining[i];
+    const rest = remaining.slice(0, i).concat(remaining.slice(i + 1));
+    for (let r = 0; r <= size - piece.h; r++) {
+      for (let c = 0; c <= size - piece.w; c++) {
+        if (!canPlace(board, piece, r, c)) continue;
+        if (++counter.n > counter.cap) return true; // give up; assume placeable
+        const nb = cloneBoard(board);
+        placePiece(nb, piece, r, c);
+        const { rows, cols } = findClears(nb);
+        if (rows.length || cols.length) applyClears(nb, rows, cols);
+        if (placeAll(nb, rest, counter)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Scoring. Constants are tuned to match the community-reverse-engineered
 // Block Blast model (no official spec exists). All are in one place so they

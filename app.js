@@ -11,6 +11,7 @@ import {
   findClears,
   applyClears,
   hasAnyMove,
+  canPlaceSequence,
   scoreMove,
   clearLabel,
   isBoardEmpty,
@@ -65,7 +66,7 @@ const boardEl = $('board');
 const trayEl = $('tray');
 const scoreEl = $('score');
 const bestEl = $('best');
-const comboLayer = $('combo-layer');
+const messageBar = $('message-bar');
 const dragLayer = $('drag-layer');
 const overlay = $('overlay');
 const rootEl = document.documentElement;
@@ -92,9 +93,9 @@ function computeLayout() {
   const vw = Math.min(window.innerWidth, 520);
   const availW = vw - 28;
   const availH = window.innerHeight;
-  // Board height ≈ 9.2*cell (8 cells + gaps + padding); reserve ~150px for the
-  // header and ~3*cell for the tray below.
-  let cell = Math.min(availW / 9.2, (availH - 150) / 12.4, 58);
+  // Vertical budget: header + message bar + gaps ≈ 186px fixed; board ≈ 9.2*cell
+  // and tray ≈ 2.9*cell. Solve cell from whichever of width/height binds.
+  let cell = Math.min(availW / 9.2, (availH - 186) / 12.1, 64);
   cell = Math.max(26, Math.floor(cell));
   const gap = Math.max(3, Math.min(7, Math.round(cell * 0.13)));
   // Cap the tray cell so even a 5-wide line piece fits its 1/3 tray column:
@@ -181,12 +182,15 @@ function renderTray(spawn) {
   state.tray.forEach((slot, i) => {
     const slotEl = document.createElement('div');
     slotEl.className = 'tray-slot';
+    slotEl.dataset.slot = String(i);
     if (slot) {
       const pieceEl = buildPieceGrid(slot.piece, 'tray-piece', '--tcell');
-      pieceEl.dataset.slot = String(i);
       if (spawn) pieceEl.classList.add('spawn');
-      pieceEl.addEventListener('pointerdown', onPiecePointerDown);
       slotEl.appendChild(pieceEl);
+      // the entire slot (a third of the tray) is the grab target, not just the
+      // few coloured blocks — much easier to pick up on a phone
+      slotEl.classList.add('has-piece');
+      slotEl.addEventListener('pointerdown', onPiecePointerDown);
     }
     trayEl.appendChild(slotEl);
   });
@@ -239,22 +243,20 @@ function showCombo(label) {
   const el = document.createElement('div');
   el.className = 'combo-pop';
   el.textContent = label;
-  el.style.transform = 'translateY(0)';
-  el.style.marginTop = `${-state.cell * 0.6}px`;
   if (reduceMotion) el.classList.add('static'); // visible, non-animated
-  comboLayer.appendChild(el);
+  messageBar.appendChild(el);
   setTimeout(() => el.remove(), reduceMotion ? 900 : 1200);
 }
 
 // --------------------------------------------------------------- piece gen --
 function generateTray(spawn) {
-  // Authentic Block Blast draws pieces randomly with no solvability guarantee.
-  // We add a gentle safeguard: if all three are dead-on-arrival for the current
-  // board, re-roll a few times so a near-empty board never loses unfairly.
+  // Hand out a set of 3 that can be fully placed in SOME order from the current
+  // board (line-clears mid-set count), so you never get an impossible hand.
+  // Skill still matters — you can still wall yourself in for the next set.
   let pick;
-  for (let attempt = 0; attempt < 14; attempt++) {
+  for (let attempt = 0; attempt < 30; attempt++) {
     pick = [randomPiece(rng), randomPiece(rng), randomPiece(rng)];
-    if (hasAnyMove(state.board, pick)) break;
+    if (canPlaceSequence(state.board, pick)) break;
   }
   state.tray = pick.map((piece) => ({ piece }));
   renderTray(spawn);
@@ -265,16 +267,17 @@ let drag = null;
 
 function onPiecePointerDown(e) {
   if (state.gameOver || state.busy || drag) return;
-  const sourceEl = e.currentTarget;
+  const sourceEl = e.currentTarget; // the whole tray slot (large grab target)
   const slot = Number(sourceEl.dataset.slot);
   const entry = state.tray[slot];
   if (!entry) return;
   e.preventDefault();
 
   const piece = entry.piece;
+  const hideEl = sourceEl.querySelector('.tray-piece');
   const el = buildPieceGrid(piece, 'drag-piece', '--cell');
   dragLayer.appendChild(el);
-  sourceEl.classList.add('dragging-source');
+  if (hideEl) hideEl.classList.add('dragging-source');
 
   // Capture the pointer so we always receive move/up/cancel even if the finger
   // leaves the element — and so the platform guarantees a terminating event.
@@ -290,7 +293,8 @@ function onPiecePointerDown(e) {
     pointerId: e.pointerId,
     el,
     sourceEl,
-    lift: Math.max(30, state.cell * 0.7),
+    hideEl,
+    lift: Math.max(22, state.cell * 0.5),
     ghostCells: [],
     target: null,
   };
@@ -325,16 +329,12 @@ function moveDrag(px, py) {
     row >= 0 && col >= 0 && row + d.piece.h <= BOARD_SIZE && col + d.piece.w <= BOARD_SIZE;
 
   clearGhost();
-  if (!inRange) {
-    d.target = null;
-    return;
-  }
-  if (canPlace(state.board, d.piece, row, col)) {
+  if (inRange && canPlace(state.board, d.piece, row, col)) {
     d.target = { row, col };
     showGhost(row, col, d.piece);
   } else {
+    // can't place here → show no highlight at all (less confusing)
     d.target = null;
-    showGhostBad(row, col, d.piece);
   }
 }
 
@@ -361,18 +361,6 @@ function showGhost(row, col, piece) {
     el.style.setProperty('--c', piece.color);
     el.classList.add('ghost');
     if (willClear && (rowSet.has(r) || colSet.has(c))) el.classList.add('ghost-line');
-    drag.ghostCells.push(el);
-  }
-}
-
-function showGhostBad(row, col, piece) {
-  for (const [dr, dc] of piece.cells) {
-    const r = row + dr;
-    const c = col + dc;
-    if (r < 0 || c < 0 || r >= BOARD_SIZE || c >= BOARD_SIZE) continue;
-    const el = cellEls[r][c];
-    if (el.classList.contains('filled')) continue;
-    el.classList.add('ghost-bad');
     drag.ghostCells.push(el);
   }
 }
@@ -433,7 +421,7 @@ function teardownDrag(commit) {
   d.el.style.transform += ' scale(0.6)';
   setTimeout(() => {
     d.el.remove();
-    if (src.isConnected) src.classList.remove('dragging-source');
+    if (d.hideEl && d.hideEl.isConnected) d.hideEl.classList.remove('dragging-source');
   }, 180);
   return null;
 }

@@ -197,7 +197,7 @@ async function main() {
 
     const pieceW = geo.w * geo.cell + (geo.w - 1) * geo.gap;
     const pieceH = geo.h * geo.cell + (geo.h - 1) * geo.gap;
-    const lift = Math.max(30, geo.cell * 0.7);
+    const lift = Math.max(22, geo.cell * 0.5);
     const px = geo.originLeft + pieceW / 2;
     const py = geo.originTop + pieceH + lift;
 
