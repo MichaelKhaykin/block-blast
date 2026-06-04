@@ -55,20 +55,35 @@ html[data-theme='light'] {
 html,
 body {
   margin: 0;
-  height: 100%;
+  min-height: 100%;
   overscroll-behavior: none;
+}
+
+/* solid fallback so the status-bar / home-indicator / overscroll regions are
+   never white, in any theme */
+html {
+  background: var(--page-bot);
 }
 
 body {
   font-family: var(--font);
   color: var(--text);
-  background: linear-gradient(180deg, var(--page-top), var(--page-bot));
-  background-attachment: fixed;
   min-height: 100dvh;
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
-  transition: color 0.25s, background 0.25s;
+  transition: color 0.25s;
+}
+
+/* Fixed full-viewport gradient backdrop. More reliable on iOS than
+   background-attachment:fixed, and always covers the whole screen regardless of
+   content height (kills the white bar at the bottom). */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, var(--page-top), var(--page-bot));
+  z-index: -1;
 }
 
 #app {

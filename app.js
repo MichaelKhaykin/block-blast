@@ -79,7 +79,6 @@ const state = {
   best: Number(store.get(BEST_KEY, '0')) || 0,
   combo: 0,
   gameOver: false,
-  busy: false, // true while a clear animation is resolving
   cell: 38,
   gap: 5,
   tcell: 22,
@@ -198,27 +197,32 @@ function renderTray(spawn) {
 
 // ----------------------------------------------------------- score view -----
 function setScoreImmediate(v) {
+  scoreTween++; // cancel any in-flight count-up
   state.displayScore = v;
   scoreEl.textContent = String(v);
 }
 
+let scoreTween = 0;
 function animateScore(to) {
+  if (to === state.displayScore) return;
+  const myTween = ++scoreTween; // supersede any in-flight tween (fast play)
   const from = state.displayScore;
-  if (to === from) return;
   if (reduceMotion) {
     state.displayScore = to;
     scoreEl.textContent = String(to);
     return;
   }
   const start = performance.now();
-  const dur = 320;
+  const dur = 300;
   scoreEl.classList.remove('bump');
   void scoreEl.offsetWidth;
   scoreEl.classList.add('bump');
   function step(now) {
+    if (myTween !== scoreTween) return; // a newer tween took over
     const t = Math.min(1, (now - start) / dur);
     const eased = 1 - Math.pow(1 - t, 3);
     const val = Math.round(from + (to - from) * eased);
+    state.displayScore = val; // keep current value live so the next tween eases from here
     scoreEl.textContent = String(val);
     if (t < 1) requestAnimationFrame(step);
     else {
@@ -271,7 +275,7 @@ let drag = null;
 const DRAG_GAIN = 1.6;
 
 function onPiecePointerDown(e) {
-  if (state.gameOver || state.busy || drag) return;
+  if (state.gameOver || drag) return;
   const sourceEl = e.currentTarget; // the whole tray slot (large grab target)
   const slot = Number(sourceEl.dataset.slot);
   const entry = state.tray[slot];
@@ -438,85 +442,85 @@ function teardownDrag(commit) {
 }
 
 // --------------------------------------------------------------- move logic -
-async function commitMove(slot, row, col) {
-  state.busy = true; // serialize input against placement → clear → refill → game-over
-  try {
-    const piece = state.tray[slot].piece;
+// Fully synchronous + non-blocking: the board state updates instantly so play
+// never pauses. Line clears only animate the OLD blocks fading out in the
+// background; the freed cells are immediately playable.
+function commitMove(slot, row, col) {
+  const piece = state.tray[slot].piece;
 
-    // 1. place
-    const placed = placePiece(state.board, piece, row, col);
-    state.tray[slot] = null;
-    for (const [r, c] of placed) fillCell(r, c, piece.color, true);
-    renderTray(false);
+  // 1. place (state + DOM)
+  const placed = placePiece(state.board, piece, row, col);
+  state.tray[slot] = null;
+  for (const [r, c] of placed) fillCell(r, c, piece.color, true);
+  renderTray(false);
 
-    // 2. detect clears
-    const { rows, cols } = findClears(state.board);
-    const linesCleared = rows.length + cols.length;
-
-    // cells that will clear (de-duplicated), and whether it empties the board
-    const clearKeys = new Set();
-    for (const r of rows) for (let c = 0; c < BOARD_SIZE; c++) clearKeys.add(`${r},${c}`);
-    for (const c of cols) for (let r = 0; r < BOARD_SIZE; r++) clearKeys.add(`${r},${c}`);
-    let filledCount = 0;
-    for (let r = 0; r < BOARD_SIZE; r++)
-      for (let c = 0; c < BOARD_SIZE; c++) if (state.board[r][c]) filledCount++;
-    const boardEmptyAfter = linesCleared > 0 && filledCount === clearKeys.size;
-
-    // 3. score
-    const { points, combo } = scoreMove({
-      placedBlocks: piece.cells.length,
-      linesCleared,
-      clearedCells: clearKeys.size,
-      comboBefore: state.combo,
-      boardEmptyAfter,
-    });
-    state.combo = combo;
-    state.score += points;
-    if (state.score > state.best) {
-      state.best = state.score;
-      store.set(BEST_KEY, String(state.best));
-      updateBest();
+  // 2. detect clears (de-duplicated list of cells)
+  const { rows, cols } = findClears(state.board);
+  const linesCleared = rows.length + cols.length;
+  const clearSet = new Set();
+  const clearList = [];
+  const mark = (r, c) => {
+    const k = `${r},${c}`;
+    if (!clearSet.has(k)) {
+      clearSet.add(k);
+      clearList.push([r, c]);
     }
-    animateScore(state.score);
+  };
+  for (const r of rows) for (let c = 0; c < BOARD_SIZE; c++) mark(r, c);
+  for (const c of cols) for (let r = 0; r < BOARD_SIZE; r++) mark(r, c);
 
-    // 4. clear animation
-    if (linesCleared > 0) {
-      showCombo(clearLabel(linesCleared, combo));
-      if (linesCleared >= 2 || combo >= 3 || boardEmptyAfter) {
-        boardEl.classList.remove('shake');
-        void boardEl.offsetWidth;
-        boardEl.classList.add('shake');
-      }
-      for (const key of clearKeys) {
-        const [r, c] = key.split(',').map(Number);
-        cellEls[r][c].classList.add('clearing');
-      }
-      await sleep(330);
-      applyClears(state.board, rows, cols);
-      for (const key of clearKeys) {
-        const [r, c] = key.split(',').map(Number);
-        emptyCell(r, c);
-      }
-    }
+  let filledCount = 0;
+  for (let r = 0; r < BOARD_SIZE; r++)
+    for (let c = 0; c < BOARD_SIZE; c++) if (state.board[r][c]) filledCount++;
+  const boardEmptyAfter = linesCleared > 0 && filledCount === clearSet.size;
 
-    // 5. refill when the tray is empty
-    if (state.tray.every((s) => s === null)) {
-      generateTray(true);
-    }
-
-    // 6. game over?
-    const remaining = state.tray.filter(Boolean).map((s) => s.piece);
-    if (!hasAnyMove(state.board, remaining)) {
-      saveState();
-      await sleep(260);
-      endGame();
-      return;
-    }
-
-    saveState();
-  } finally {
-    state.busy = false;
+  // 3. score
+  const { points, combo } = scoreMove({
+    placedBlocks: piece.cells.length,
+    linesCleared,
+    clearedCells: clearSet.size,
+    comboBefore: state.combo,
+    boardEmptyAfter,
+  });
+  state.combo = combo;
+  state.score += points;
+  if (state.score > state.best) {
+    state.best = state.score;
+    store.set(BEST_KEY, String(state.best));
+    updateBest();
   }
+  animateScore(state.score);
+
+  // 4. clears: free the cells in STATE right now, then animate the DOM out
+  //    without blocking. The deferred cleanup skips any cell a later placement
+  //    has already refilled (fillCell strips the 'clearing' marker).
+  if (linesCleared > 0) {
+    showCombo(clearLabel(linesCleared, combo));
+    if (linesCleared >= 2 || combo >= 3 || boardEmptyAfter) {
+      boardEl.classList.remove('shake');
+      void boardEl.offsetWidth;
+      boardEl.classList.add('shake');
+    }
+    for (const [r, c] of clearList) cellEls[r][c].classList.add('clearing');
+    applyClears(state.board, rows, cols);
+    setTimeout(() => {
+      for (const [r, c] of clearList) {
+        if (cellEls[r][c].classList.contains('clearing')) emptyCell(r, c);
+      }
+    }, 330);
+  }
+
+  // 5. refill when the tray is empty
+  if (state.tray.every((s) => s === null)) generateTray(true);
+
+  // 6. game over — deferred so it never interrupts the current gesture
+  const remaining = state.tray.filter(Boolean).map((s) => s.piece);
+  if (!hasAnyMove(state.board, remaining)) {
+    saveState();
+    setTimeout(endGame, 280);
+    return;
+  }
+  saveState();
 }
 
 // --------------------------------------------------------------- game over --
@@ -535,7 +539,6 @@ function newGame() {
   state.score = 0;
   state.combo = 0;
   state.gameOver = false;
-  state.busy = false;
   setScoreImmediate(0);
   renderBoardFull();
   generateTray(true);
@@ -636,7 +639,6 @@ function init() {
 
   $('theme-btn').addEventListener('click', toggleTheme);
   $('restart-btn').addEventListener('click', () => {
-    if (state.busy) return;
     newGame();
   });
   $('play-again').addEventListener('click', newGame);

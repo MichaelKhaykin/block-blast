@@ -265,7 +265,7 @@ export function hasAnyMove(board, pieces) {
 // soon as one complete sequence is found (fast for the common, solvable case).
 // `cap` bounds the search so a pathological board can never hang the UI — if the
 // cap is hit we conservatively return true (treat the set as acceptable).
-export function canPlaceSequence(board, pieces, cap = 120000) {
+export function canPlaceSequence(board, pieces, cap = 50000) {
   const list = pieces.filter(Boolean);
   const counter = { n: 0, cap };
   return placeAll(board, list, counter);

@@ -215,7 +215,7 @@ async function main() {
     check(ghost > 0, `drag shows a valid ghost preview (got ${ghost} ghost cells)`);
 
     await cdp.mouse('mouseReleased', px, py);
-    await sleep(250);
+    await sleep(500); // let the score count-up tween settle
 
     const after = await cdp.evaluate(`() => ({
       filled: document.querySelectorAll('#board .cell.filled').length,
@@ -227,6 +227,42 @@ async function main() {
     check(after.filled === geo.w * geo.h || after.filled >= 1, `filled cells consistent with piece`);
     check(after.pieces === 2, `tray now has 2 pieces after placing one (got ${after.pieces})`);
     check(after.score >= after.filled, `score increased after placement (got ${after.score})`);
+
+    // --- rapid second placement: input is never gated between moves ---
+    const geo2 = await cdp.evaluate(`() => {
+      const tp = document.querySelector('.tray-piece');
+      if (!tp) return null;
+      const r = tp.getBoundingClientRect();
+      const c0 = document.querySelectorAll('#board .cell')[0].getBoundingClientRect();
+      const cs = getComputedStyle(document.documentElement);
+      const cell = parseFloat(cs.getPropertyValue('--cell'));
+      const gap = parseFloat(cs.getPropertyValue('--gap'));
+      const w = getComputedStyle(tp).gridTemplateColumns.split(' ').length;
+      const h = getComputedStyle(tp).gridTemplateRows.split(' ').length;
+      return { trayX: r.left+r.width/2, trayY: r.top+r.height/2, originLeft: c0.left, originTop: c0.top, cell, gap, w, h };
+    }`);
+    if (geo2) {
+      const pitch = geo2.cell + geo2.gap;
+      const pw2 = geo2.w * geo2.cell + (geo2.w - 1) * geo2.gap;
+      const ph2 = geo2.h * geo2.cell + (geo2.h - 1) * geo2.gap;
+      const lift2 = Math.max(22, geo2.cell * 0.5);
+      const tRow = 8 - geo2.h, tCol = 0; // bottom-left, always fits a fresh board
+      const tLeft = geo2.originLeft + tCol * pitch;
+      const tTop = geo2.originTop + tRow * pitch;
+      const px2 = geo2.trayX + (tLeft - geo2.trayX + pw2 / 2) / 1.6;
+      const py2 = geo2.trayY + (tTop - geo2.trayY + ph2 + lift2) / 1.6;
+      await cdp.mouse('mousePressed', geo2.trayX, geo2.trayY);
+      await cdp.mouse('mouseMoved', px2, py2);
+      await sleep(20); // almost no delay — must not be blocked
+      await cdp.mouse('mouseReleased', px2, py2);
+      await sleep(150);
+      const after2 = await cdp.evaluate(`() => ({
+        filled: document.querySelectorAll('#board .cell.filled').length,
+        pieces: document.querySelectorAll('#tray .tray-piece').length,
+      })`);
+      check(after2.pieces === 1, `rapid 2nd placement consumed a piece (tray ${after2.pieces}, want 1)`);
+      check(after2.filled > after.filled, `rapid 2nd placement added blocks (${after.filled} -> ${after2.filled})`);
+    }
 
     // theme toggle + aria-pressed wiring
     const themed = await cdp.evaluate(`() => {
