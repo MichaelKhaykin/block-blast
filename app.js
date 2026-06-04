@@ -128,7 +128,7 @@ function buildBoard() {
 
 function fillCell(r, c, color, pop) {
   const el = cellEls[r][c];
-  el.classList.remove('ghost', 'ghost-line', 'ghost-bad', 'clearing');
+  el.classList.remove('ghost', 'ghost-bad', 'clear-preview', 'clearing');
   el.classList.add('filled', 'gem');
   el.style.setProperty('--c', color);
   if (pop) {
@@ -140,7 +140,7 @@ function fillCell(r, c, color, pop) {
 
 function emptyCell(r, c) {
   const el = cellEls[r][c];
-  el.classList.remove('filled', 'gem', 'pop', 'ghost', 'ghost-line', 'ghost-bad', 'clearing');
+  el.classList.remove('filled', 'gem', 'pop', 'ghost', 'ghost-bad', 'clear-preview', 'clearing');
   el.style.removeProperty('--c');
 }
 
@@ -355,29 +355,35 @@ function moveDrag(px, py) {
 
 function clearGhost() {
   for (const el of drag.ghostCells) {
-    el.classList.remove('ghost', 'ghost-line', 'ghost-bad');
+    el.classList.remove('ghost', 'ghost-bad', 'clear-preview');
     if (!el.classList.contains('filled')) el.style.removeProperty('--c');
   }
   drag.ghostCells = [];
 }
 
 function showGhost(row, col, piece) {
-  // Would this placement complete any lines? Highlight those ghost cells.
-  const test = state.board.map((r) => r.slice());
-  for (const [dr, dc] of piece.cells) test[row + dr][col + dc] = piece.color;
-  const { rows, cols } = findClears(test);
-  const willClear = rows.length + cols.length > 0;
-  const rowSet = new Set(rows);
-  const colSet = new Set(cols);
+  // 1. coloured ghost for the piece's own footprint
   for (const [dr, dc] of piece.cells) {
     const r = row + dr;
     const c = col + dc;
     const el = cellEls[r][c];
     el.style.setProperty('--c', piece.color);
     el.classList.add('ghost');
-    if (willClear && (rowSet.has(r) || colSet.has(c))) el.classList.add('ghost-line');
     drag.ghostCells.push(el);
   }
+  // 2. if this placement would complete any row(s)/column(s), light up the
+  //    WHOLE line — existing blocks and the incoming piece alike — so the
+  //    upcoming clear is obvious.
+  const test = state.board.map((r) => r.slice());
+  for (const [dr, dc] of piece.cells) test[row + dr][col + dc] = piece.color;
+  const { rows, cols } = findClears(test);
+  const preview = (r, c) => {
+    const el = cellEls[r][c];
+    el.classList.add('clear-preview');
+    drag.ghostCells.push(el);
+  };
+  for (const r of rows) for (let c = 0; c < BOARD_SIZE; c++) preview(r, c);
+  for (const c of cols) for (let r = 0; r < BOARD_SIZE; r++) preview(r, c);
 }
 
 function onPointerMove(e) {
@@ -420,7 +426,7 @@ function teardownDrag(commit) {
   }
 
   for (const cell of d.ghostCells) {
-    cell.classList.remove('ghost', 'ghost-line', 'ghost-bad');
+    cell.classList.remove('ghost', 'ghost-bad', 'clear-preview');
     if (!cell.classList.contains('filled')) cell.style.removeProperty('--c');
   }
   d.ghostCells = [];

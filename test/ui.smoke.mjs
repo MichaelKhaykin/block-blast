@@ -280,6 +280,58 @@ async function main() {
     fs.writeFileSync('/tmp/bb-smoke.png', Buffer.from(shot.data, 'base64'));
     log('\nScreenshot (light theme): /tmp/bb-smoke.png');
 
+    // --- about-to-clear line highlight ---
+    // Seed a saved game (row 7 filled except the last cell, a single mono in the
+    // tray), reload so the app restores it, then hover the mono over the gap.
+    await cdp.evaluate(`() => {
+      const board = Array.from({ length: 8 }, () => Array(8).fill(null));
+      for (let c = 0; c < 7; c++) board[7][c] = '#3b62e6';
+      localStorage.setItem('blockblast.save.v1', JSON.stringify({ board, tray: [0, null, null], score: 0, combo: 0, gameOver: false }));
+      localStorage.setItem('blockblast.theme.v1', 'dark');
+      return true;
+    }`);
+    const reloaded = new Promise((res) => cdp.on((m) => m === 'Page.loadEventFired' && res()));
+    await cdp.send('Page.reload');
+    await Promise.race([reloaded, sleep(4000)]);
+    await sleep(500);
+
+    const restored = await cdp.evaluate(`() => ({
+      filled: document.querySelectorAll('#board .cell.filled').length,
+      pieces: document.querySelectorAll('#tray .tray-piece').length,
+    })`);
+    check(restored.filled === 7, `restored board has 7 filled cells (got ${restored.filled})`);
+    check(restored.pieces === 1, `restored tray has the single mono (got ${restored.pieces})`);
+
+    const mg = await cdp.evaluate(`() => {
+      const tp = document.querySelector('.tray-piece');
+      const r = tp.getBoundingClientRect();
+      const cells = document.querySelectorAll('#board .cell');
+      const target = cells[7 * 8 + 7].getBoundingClientRect();
+      const cs = getComputedStyle(document.documentElement);
+      return { trayX: r.left + r.width / 2, trayY: r.top + r.height / 2,
+               tLeft: target.left, tTop: target.top,
+               cell: parseFloat(cs.getPropertyValue('--cell')) };
+    }`);
+    const lift3 = Math.max(22, mg.cell * 0.5);
+    const px3 = mg.trayX + (mg.tLeft - mg.trayX + mg.cell / 2) / 1.6;
+    const py3 = mg.trayY + (mg.tTop - mg.trayY + mg.cell + lift3) / 1.6;
+    await cdp.mouse('mousePressed', mg.trayX, mg.trayY);
+    await sleep(30);
+    await cdp.mouse('mouseMoved', px3, py3);
+    await sleep(90);
+
+    const preview = await cdp.evaluate(`() => document.querySelectorAll('#board .cell.clear-preview').length`);
+    check(preview === 8, `about-to-clear lights up the whole row (got ${preview} cells, want 8)`);
+
+    const shot2 = await cdp.send('Page.captureScreenshot', { format: 'png' });
+    fs.writeFileSync('/tmp/bb-clearpreview.png', Buffer.from(shot2.data, 'base64'));
+    log('Clear-preview screenshot: /tmp/bb-clearpreview.png');
+
+    await cdp.mouse('mouseReleased', px3, py3);
+    await sleep(450);
+    const clearedNow = await cdp.evaluate(`() => document.querySelectorAll('#board .cell.filled').length`);
+    check(clearedNow === 0, `dropping into the gap clears the whole row (filled now ${clearedNow})`);
+
     check(exceptions.length === 0, `no uncaught exceptions${exceptions.length ? ': ' + exceptions.join(' | ') : ''}`);
     check(consoleErrors.length === 0, `no console errors${consoleErrors.length ? ': ' + consoleErrors.join(' | ') : ''}`);
 
