@@ -126,16 +126,6 @@ body::before {
   transform: scale(0.92);
 }
 
-#theme-btn .icon-sun {
-  display: none;
-}
-html[data-theme='light'] #theme-btn .icon-sun {
-  display: inline;
-}
-html[data-theme='light'] #theme-btn .icon-moon {
-  display: none;
-}
-
 .score-wrap {
   text-align: center;
   display: flex;
@@ -494,6 +484,88 @@ html[data-theme='light'] .combo-pop {
 .play-again:active {
   transform: translateY(3px);
   box-shadow: 0 3px 0 #2942b8, 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- the note on the game-over screen ---- */
+.love-note {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--panel);
+}
+.love-note-q {
+  font-size: 15px;
+  color: var(--text-dim);
+}
+.love-note-sign {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--gold);
+}
+
+/* ---- settings panel ---- */
+.settings-card {
+  text-align: left;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0;
+}
+.setting-label {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+}
+.setting-actions {
+  display: flex;
+  gap: 8px;
+}
+.setting-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--panel);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.08s;
+}
+.setting-btn:active {
+  transform: scale(0.95);
+  background: var(--panel-press);
+}
+.setting-btn.subtle {
+  opacity: 0.7;
+}
+.setting-hint {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: -4px 0 16px;
+}
+#theme-btn .icon-sun {
+  display: none;
+}
+html[data-theme='light'] #theme-btn .icon-sun {
+  display: inline;
+}
+html[data-theme='light'] #theme-btn .icon-moon {
+  display: none;
+}
+
+/* ---- photo overlay on placed blocks ---- */
+/* Each filled cell reveals its slice of the photo, so the board reads as one
+   image seen through the blocks. The gem bevel stays for a glossy look. */
+.photo-mode .cell.filled.gem {
+  background-color: transparent;
+  background-image: var(--photo);
+  background-repeat: no-repeat;
+  background-size: calc(8 * var(--cell) + 7 * var(--gap)) calc(8 * var(--cell) + 7 * var(--gap));
+  background-position: calc(var(--col) * (var(--cell) + var(--gap)) * -1)
+    calc(var(--row) * (var(--cell) + var(--gap)) * -1);
 }
 
 .hidden {

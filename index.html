@@ -23,9 +23,7 @@
 <body>
   <div id="app">
     <header id="header">
-      <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle theme">
-        <span class="icon-moon">☾</span><span class="icon-sun">☀</span>
-      </button>
+      <button id="settings-btn" class="icon-btn" aria-label="Settings" title="Settings">⚙</button>
 
       <div class="score-wrap">
         <div class="best-score" aria-label="Best score">
@@ -63,6 +61,36 @@
       </div>
       <div id="new-best-badge" class="new-best hidden">New Best! 🎉</div>
       <button id="play-again" class="play-again">Play Again</button>
+      <div class="love-note">
+        <div class="love-note-q">Want a break from the ads?</div>
+        <div class="love-note-sign">Love, Michael</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- settings -->
+  <div id="settings" class="overlay hidden" aria-hidden="true">
+    <div class="overlay-card settings-card">
+      <div class="overlay-title">Settings</div>
+
+      <div class="setting-row">
+        <span class="setting-label">Theme</span>
+        <button id="theme-btn" class="setting-btn" aria-label="Toggle light or dark theme" aria-pressed="false">
+          <span class="icon-moon">☾ Dark</span><span class="icon-sun">☀ Light</span>
+        </button>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Block photo</span>
+        <div class="setting-actions">
+          <button id="choose-photo" class="setting-btn">Choose…</button>
+          <button id="remove-photo" class="setting-btn subtle">Remove</button>
+        </div>
+      </div>
+      <p class="setting-hint">Overlay a photo from your camera roll onto the blocks.</p>
+      <input type="file" id="photo-input" accept="image/*" hidden />
+
+      <button id="settings-done" class="play-again">Done</button>
     </div>
   </div>
 

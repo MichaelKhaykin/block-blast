@@ -332,6 +332,103 @@ async function main() {
     const clearedNow = await cdp.evaluate(`() => document.querySelectorAll('#board .cell.filled').length`);
     check(clearedNow === 0, `dropping into the gap clears the whole row (filled now ${clearedNow})`);
 
+    // --- smart snapping ---
+    // Board full except one gap at (3,3). Hovering a FILLED cell next to it
+    // should snap to the gap; hovering far away should highlight nothing.
+    await cdp.evaluate(`() => {
+      const board = Array.from({ length: 8 }, () => Array(8).fill('#3b62e6'));
+      board[3][3] = null;
+      localStorage.setItem('blockblast.save.v1', JSON.stringify({ board, tray: [0, null, null], score: 0, combo: 0, gameOver: false }));
+      return true;
+    }`);
+    const reloaded2 = new Promise((res) => cdp.on((m) => m === 'Page.loadEventFired' && res()));
+    await cdp.send('Page.reload');
+    await Promise.race([reloaded2, sleep(4000)]);
+    await sleep(400);
+    const sgeo = await cdp.evaluate(`() => {
+      const tp = document.querySelector('.tray-piece');
+      const r = tp.getBoundingClientRect();
+      const cells = document.querySelectorAll('#board .cell');
+      const cs = getComputedStyle(document.documentElement);
+      const at = (i) => { const b = cells[i].getBoundingClientRect(); return { left: b.left, top: b.top }; };
+      return { trayX: r.left + r.width / 2, trayY: r.top + r.height / 2,
+               cell: parseFloat(cs.getPropertyValue('--cell')), near34: at(3 * 8 + 4), near77: at(7 * 8 + 7) };
+    }`);
+    const lift4 = Math.max(22, sgeo.cell * 0.5);
+    const fingerFor = (rect) => ({
+      x: sgeo.trayX + (rect.left - sgeo.trayX + sgeo.cell / 2) / 1.6,
+      y: sgeo.trayY + (rect.top - sgeo.trayY + sgeo.cell + lift4) / 1.6,
+    });
+    const f34 = fingerFor(sgeo.near34);
+    const f77 = fingerFor(sgeo.near77);
+    await cdp.mouse('mousePressed', sgeo.trayX, sgeo.trayY);
+    await sleep(20);
+    await cdp.mouse('mouseMoved', f34.x, f34.y);
+    await sleep(70);
+    const snap1 = await cdp.evaluate(`() => { const g = document.querySelector('#board .cell.ghost'); return g ? { row: g.style.getPropertyValue('--row'), col: g.style.getPropertyValue('--col') } : null; }`);
+    check(snap1 && snap1.row === '3' && snap1.col === '3', `hovering a filled cell snaps to the adjacent gap (got ${JSON.stringify(snap1)})`);
+    await cdp.mouse('mouseMoved', f77.x, f77.y);
+    await sleep(70);
+    const snap2 = await cdp.evaluate(`() => document.querySelectorAll('#board .cell.ghost').length`);
+    check(snap2 === 0, `hovering far from any valid spot highlights nothing (got ${snap2})`);
+    await cdp.mouse('mouseReleased', f77.x, f77.y);
+    await sleep(100);
+
+    // --- photo overlay on blocks ---
+    await cdp.evaluate(`() => {
+      const board = Array.from({ length: 8 }, () => Array(8).fill(null));
+      for (let r = 2; r < 6; r++) for (let c = 2; c < 6; c++) board[r][c] = '#3b62e6';
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+      const cx = cv.getContext('2d');
+      const g = cx.createLinearGradient(0, 0, 64, 64);
+      g.addColorStop(0, '#ff5fa2'); g.addColorStop(0.5, '#f5c01e'); g.addColorStop(1, '#28aee0');
+      cx.fillStyle = g; cx.fillRect(0, 0, 64, 64);
+      localStorage.setItem('blockblast.photo.v1', cv.toDataURL('image/jpeg', 0.9));
+      localStorage.setItem('blockblast.save.v1', JSON.stringify({ board, tray: [0, null, null], score: 0, combo: 0, gameOver: false }));
+      return true;
+    }`);
+    const reloaded3 = new Promise((res) => cdp.on((m) => m === 'Page.loadEventFired' && res()));
+    await cdp.send('Page.reload');
+    await Promise.race([reloaded3, sleep(4000)]);
+    await sleep(400);
+    const photo = await cdp.evaluate(`() => {
+      const fc = document.querySelector('#board .cell.filled');
+      const bg = fc ? getComputedStyle(fc).backgroundImage : '';
+      return { mode: document.documentElement.classList.contains('photo-mode'), hasImg: /url\\(/.test(bg) && /data:image/.test(bg) };
+    }`);
+    check(photo.mode, 'photo-mode enabled when a photo is saved');
+    check(photo.hasImg, 'filled blocks render the photo as their background');
+    fs.writeFileSync('/tmp/bb-photo.png', Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    log('Photo screenshot: /tmp/bb-photo.png');
+
+    // --- settings panel + the note ---
+    const ui = await cdp.evaluate(`() => {
+      document.getElementById('settings-btn').click();
+      const s = document.getElementById('settings');
+      const q = document.querySelector('.love-note-q');
+      const sign = document.querySelector('.love-note-sign');
+      return {
+        settingsOpen: !s.classList.contains('hidden'),
+        note: (q ? q.textContent : '') + ' / ' + (sign ? sign.textContent : ''),
+        hasPhotoInput: !!document.getElementById('photo-input'),
+      };
+    }`);
+    check(ui.settingsOpen, 'settings panel opens from the gear button');
+    check(ui.note.includes('Want a break from the ads?') && ui.note.includes('Love, Michael'), `the note is present (got "${ui.note.trim()}")`);
+    check(ui.hasPhotoInput, 'camera-roll photo picker present');
+    fs.writeFileSync('/tmp/bb-settings.png', Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+
+    // show the game-over card to screenshot the note
+    await cdp.evaluate(`() => {
+      document.getElementById('settings').classList.add('hidden');
+      document.getElementById('final-score').textContent = '1234';
+      document.getElementById('final-best').textContent = '1234';
+      document.getElementById('overlay').classList.remove('hidden');
+    }`);
+    await sleep(250);
+    fs.writeFileSync('/tmp/bb-gameover.png', Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    log('Settings + game-over screenshots: /tmp/bb-settings.png, /tmp/bb-gameover.png');
+
     check(exceptions.length === 0, `no uncaught exceptions${exceptions.length ? ': ' + exceptions.join(' | ') : ''}`);
     check(consoleErrors.length === 0, `no console errors${consoleErrors.length ? ': ' + consoleErrors.join(' | ') : ''}`);
 

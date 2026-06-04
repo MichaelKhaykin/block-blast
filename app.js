@@ -22,6 +22,7 @@ import {
 const SAVE_KEY = 'blockblast.save.v1';
 const BEST_KEY = 'blockblast.best.v1';
 const THEME_KEY = 'blockblast.theme.v1';
+const PHOTO_KEY = 'blockblast.photo.v1';
 
 const store = {
   get(key, fallback) {
@@ -119,6 +120,9 @@ function buildBoard() {
     for (let c = 0; c < BOARD_SIZE; c++) {
       const el = document.createElement('div');
       el.className = 'cell';
+      // used by photo-mode to position each cell's slice of the image
+      el.style.setProperty('--row', String(r));
+      el.style.setProperty('--col', String(c));
       boardEl.appendChild(el);
       row.push(el);
     }
@@ -337,20 +341,44 @@ function moveDrag(px, py) {
   const floatTop = baseTop + DRAG_GAIN * (py - d.startY);
   d.el.style.transform = `translate(${floatLeft}px, ${floatTop}px)`;
 
-  const col = Math.round((floatLeft - o.left) / pitch);
-  const row = Math.round((floatTop - o.top) / pitch);
-
-  const inRange =
-    row >= 0 && col >= 0 && row + d.piece.h <= BOARD_SIZE && col + d.piece.w <= BOARD_SIZE;
+  const exactRow = (floatTop - o.top) / pitch;
+  const exactCol = (floatLeft - o.left) / pitch;
 
   clearGhost();
-  if (inRange && canPlace(state.board, d.piece, row, col)) {
-    d.target = { row, col };
-    showGhost(row, col, d.piece);
+  const snap = findSnap(exactRow, exactCol, d.piece);
+  if (snap) {
+    d.target = snap;
+    showGhost(snap.row, snap.col, d.piece);
   } else {
-    // can't place here → show no highlight at all (less confusing)
+    // nothing valid nearby → show no highlight at all (less confusing)
     d.target = null;
   }
+}
+
+// Find the nearest VALID placement to where the piece is hovering, but only
+// within one cell of the hover (a 3x3 neighbourhood of anchors). This snaps to
+// the closest spot the piece could actually go that still touches where you're
+// aiming — it never jumps to a far-away empty area on the other side of the
+// board. Returns {row, col} or null.
+function findSnap(exactRow, exactCol, piece) {
+  const rawRow = Math.round(exactRow);
+  const rawCol = Math.round(exactCol);
+  let best = null;
+  let bestDist = Infinity;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const r = rawRow + dr;
+      const c = rawCol + dc;
+      if (r < 0 || c < 0 || r + piece.h > BOARD_SIZE || c + piece.w > BOARD_SIZE) continue;
+      if (!canPlace(state.board, piece, r, c)) continue;
+      const dist = Math.hypot(r - exactRow, c - exactCol);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = { row: r, col: c };
+      }
+    }
+  }
+  return best;
 }
 
 function clearGhost() {
@@ -606,6 +634,50 @@ function toggleTheme() {
   applyTheme(cur);
 }
 
+// --------------------------------------------------------------- photo ------
+function applyPhoto(dataUrl) {
+  rootEl.style.setProperty('--photo', `url("${dataUrl}")`);
+  rootEl.classList.add('photo-mode');
+}
+
+function clearPhoto() {
+  rootEl.style.removeProperty('--photo');
+  rootEl.classList.remove('photo-mode');
+  store.del(PHOTO_KEY);
+}
+
+// Read a chosen image, cover-fit it into a square, downscale, and store it as a
+// data URL so it persists and stays small enough for localStorage.
+function handlePhotoFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      let dataUrl;
+      try {
+        dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      } catch {
+        return;
+      }
+      applyPhoto(dataUrl);
+      store.set(PHOTO_KEY, dataUrl);
+    };
+    img.onerror = () => {};
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 // --------------------------------------------------------------- install ----
 function maybeShowInstallHint() {
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -629,6 +701,8 @@ function init() {
   computeLayout();
   buildBoard();
   applyTheme(store.get(THEME_KEY, 'dark'));
+  const savedPhoto = store.get(PHOTO_KEY, null);
+  if (savedPhoto) applyPhoto(savedPhoto);
   updateBest();
 
   const restored = loadState();
@@ -648,6 +722,23 @@ function init() {
     newGame();
   });
   $('play-again').addEventListener('click', newGame);
+
+  // settings panel
+  const settingsPanel = $('settings');
+  $('settings-btn').addEventListener('click', () => {
+    settingsPanel.classList.remove('hidden');
+    settingsPanel.setAttribute('aria-hidden', 'false');
+  });
+  $('settings-done').addEventListener('click', () => {
+    settingsPanel.classList.add('hidden');
+    settingsPanel.setAttribute('aria-hidden', 'true');
+  });
+  $('choose-photo').addEventListener('click', () => $('photo-input').click());
+  $('photo-input').addEventListener('change', (e) => {
+    handlePhotoFile(e.target.files && e.target.files[0]);
+    e.target.value = ''; // let the same file be re-picked later
+  });
+  $('remove-photo').addEventListener('click', clearPhoto);
 
   window.addEventListener('resize', () => {
     computeLayout();
