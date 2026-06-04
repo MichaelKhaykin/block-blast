@@ -198,8 +198,11 @@ async function main() {
     const pieceW = geo.w * geo.cell + (geo.w - 1) * geo.gap;
     const pieceH = geo.h * geo.cell + (geo.h - 1) * geo.gap;
     const lift = Math.max(22, geo.cell * 0.5);
-    const px = geo.originLeft + pieceW / 2;
-    const py = geo.originTop + pieceH + lift;
+    // invert the amplified-drag mapping (start = tray press point) to find the
+    // finger position that lands the piece's top-left at board (0,0)
+    const GAIN = 1.6;
+    const px = geo.trayX + (geo.originLeft - geo.trayX + pieceW / 2) / GAIN;
+    const py = geo.trayY + (geo.originTop - geo.trayY + pieceH + lift) / GAIN;
 
     await cdp.mouse('mousePressed', geo.trayX, geo.trayY);
     await sleep(40);

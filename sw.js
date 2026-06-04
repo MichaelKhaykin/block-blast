@@ -1,6 +1,6 @@
 // Service worker — offline-first app shell cache.
 // Bump CACHE on any asset change to force clients to refresh.
-const CACHE = 'blockblast-v2';
+const CACHE = 'blockblast-v3';
 const ASSETS = [
   '.',
   'index.html',

@@ -265,6 +265,11 @@ function generateTray(spawn) {
 // --------------------------------------------------------------- input ------
 let drag = null;
 
+// Control-display gain: how much the piece moves relative to the finger. >1 so
+// small finger movements move the piece a lot (matches the real game's feel),
+// meaning you barely shift your finger to reach across the board.
+const DRAG_GAIN = 1.6;
+
 function onPiecePointerDown(e) {
   if (state.gameOver || state.busy || drag) return;
   const sourceEl = e.currentTarget; // the whole tray slot (large grab target)
@@ -294,6 +299,8 @@ function onPiecePointerDown(e) {
     el,
     sourceEl,
     hideEl,
+    startX: e.clientX, // gesture origin — movement is amplified relative to here
+    startY: e.clientY,
     lift: Math.max(22, state.cell * 0.5),
     ghostCells: [],
     target: null,
@@ -318,8 +325,12 @@ function moveDrag(px, py) {
   const pieceW = d.piece.w * cell + (d.piece.w - 1) * gap;
   const pieceH = d.piece.h * cell + (d.piece.h - 1) * gap;
 
-  const floatLeft = px - pieceW / 2;
-  const floatTop = py - pieceH - d.lift;
+  // Piece starts lifted above the initial touch, then amplifies finger movement
+  // (DRAG_GAIN) so it pulls ahead — small finger motion, big piece motion.
+  const baseLeft = d.startX - pieceW / 2;
+  const baseTop = d.startY - pieceH - d.lift;
+  const floatLeft = baseLeft + DRAG_GAIN * (px - d.startX);
+  const floatTop = baseTop + DRAG_GAIN * (py - d.startY);
   d.el.style.transform = `translate(${floatLeft}px, ${floatTop}px)`;
 
   const col = Math.round((floatLeft - o.left) / pitch);
