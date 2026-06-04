@@ -342,16 +342,31 @@ export function scoreMove({ placedBlocks, linesCleared, clearedCells = 0, comboB
   return { points, combo };
 }
 
-const PRAISE = ['Nice!', 'Good Work!', 'Great!', 'Amazing!', 'Excellent!', 'Perfect!'];
+// Sweet, lovey-dovey praise — indexed by combo streak so it gets more excited
+// the longer the streak goes.
+const PRAISE = [
+  'Good job, honey!',
+  'Good job, honey!',
+  "Go get 'em, sweetie!",
+  'Nice one, love!',
+  'Amazing, babe!',
+  'Incredible, cutie!',
+  'Perfect, sweetheart! 💕',
+];
 
 // Human-facing label for a clear event (for combo popups).
 export function clearLabel(linesCleared, combo) {
   if (linesCleared <= 0) return null;
-  const byLines = { 2: 'Double!', 3: 'Triple!', 4: 'Quad!', 5: 'Penta!' };
+  const byLines = {
+    2: 'Double, love!',
+    3: 'Triple, babe!',
+    4: 'Quad, gorgeous!',
+    5: 'Penta, my love!',
+  };
   let label;
-  if (linesCleared >= 6) label = 'Mega Clear!';
+  if (linesCleared >= 6) label = 'Mega clear, sweetheart! 💖';
   else if (byLines[linesCleared]) label = byLines[linesCleared];
-  else label = PRAISE[Math.min(combo, PRAISE.length - 1)] || 'Clear!';
+  else label = PRAISE[Math.min(combo, PRAISE.length - 1)] || 'Good job, honey!';
   if (combo >= 2) label += `  Combo x${combo}`;
   return label;
 }

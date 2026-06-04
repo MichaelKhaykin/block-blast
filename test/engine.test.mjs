@@ -179,6 +179,7 @@ eq(comboMultiplier(3), 2, 'third consecutive clear -> 2.0x');
 ok(clearLabel(0, 0) === null, 'no clear -> no label');
 ok(clearLabel(2, 1).includes('Double'), 'double label');
 ok(clearLabel(1, 3).includes('Combo x3'), 'combo label appears at streak >= 2');
+ok(/honey|sweetie|love|babe|cutie|sweetheart/i.test(clearLabel(1, 1)), 'single clears show a sweet message');
 
 // --- isBoardEmpty --------------------------------------------------------
 ok(isBoardEmpty(emptyBoard()), 'fresh board is empty');
