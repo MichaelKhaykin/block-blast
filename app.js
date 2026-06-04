@@ -23,6 +23,11 @@ const SAVE_KEY = 'blockblast.save.v1';
 const BEST_KEY = 'blockblast.best.v1';
 const THEME_KEY = 'blockblast.theme.v1';
 const PHOTO_KEY = 'blockblast.photo.v1';
+const NAME_KEY = 'blockblast.name.v1';
+
+// Shared leaderboard endpoint (a Cloudflare Worker). Empty string = the whole
+// leaderboard feature stays hidden and inert.
+const LEADERBOARD_URL = 'https://block-blast-scores.mr-khaykin.workers.dev';
 
 const store = {
   get(key, fallback) {
@@ -80,6 +85,7 @@ const state = {
   best: Number(store.get(BEST_KEY, '0')) || 0,
   combo: 0,
   gameOver: false,
+  scores: {}, // last-fetched leaderboard { name: { best, at } }
   cell: 38,
   gap: 5,
   tcell: 22,
@@ -566,6 +572,7 @@ function endGame() {
   $('new-best-badge').classList.toggle('hidden', !isNewBest);
   overlay.classList.remove('hidden');
   overlay.setAttribute('aria-hidden', 'false');
+  publishScore(); // share this run's best + refresh the board
 }
 
 function newGame() {
@@ -678,6 +685,78 @@ function handlePhotoFile(file) {
   reader.readAsDataURL(file);
 }
 
+// --------------------------------------------------------------- leaderboard
+function leaderboardEnabled() {
+  return !!LEADERBOARD_URL;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+}
+
+function renderLeaderboard() {
+  const myName = (store.get(NAME_KEY, '') || '').trim();
+  const entries = Object.entries(state.scores || {})
+    .map(([name, v]) => ({ name, best: (v && v.best) || 0 }))
+    .sort((a, b) => b.best - a.best);
+  const html = entries.length
+    ? entries
+        .map(
+          (e, i) =>
+            `<div class="lb-row${e.name === myName ? ' me' : ''}">` +
+            `<span class="lb-rank">${i + 1}</span>` +
+            `<span class="lb-name">${escapeHtml(e.name)}</span>` +
+            `<span class="lb-score">${e.best.toLocaleString()}</span></div>`,
+        )
+        .join('')
+    : '<div class="lb-empty">No scores yet — play a game!</div>';
+  for (const id of ['leaderboard', 'leaderboard-go']) {
+    const el = $(id);
+    if (el) el.innerHTML = html;
+  }
+  const go = $('leaderboard-go');
+  if (go) go.classList.toggle('hidden', !(leaderboardEnabled() && entries.length));
+}
+
+async function fetchLeaderboard() {
+  if (!leaderboardEnabled()) return;
+  try {
+    const res = await fetch(LEADERBOARD_URL, { method: 'GET' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && typeof data === 'object') {
+      state.scores = data;
+      renderLeaderboard();
+    }
+  } catch {
+    /* offline / unreachable — keep showing whatever we last had */
+  }
+}
+
+async function publishScore() {
+  if (!leaderboardEnabled()) return;
+  const name = (store.get(NAME_KEY, '') || '').trim();
+  if (!name) return fetchLeaderboard();
+  try {
+    const res = await fetch(LEADERBOARD_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, best: state.best }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && typeof data === 'object') {
+      state.scores = data;
+      renderLeaderboard();
+    }
+  } catch {
+    /* ignore network errors */
+  }
+}
+
 // --------------------------------------------------------------- install ----
 function maybeShowInstallHint() {
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -728,6 +807,7 @@ function init() {
   $('settings-btn').addEventListener('click', () => {
     settingsPanel.classList.remove('hidden');
     settingsPanel.setAttribute('aria-hidden', 'false');
+    fetchLeaderboard();
   });
   $('settings-done').addEventListener('click', () => {
     settingsPanel.classList.add('hidden');
@@ -739,6 +819,18 @@ function init() {
     e.target.value = ''; // let the same file be re-picked later
   });
   $('remove-photo').addEventListener('click', clearPhoto);
+
+  // leaderboard (only wired when an endpoint is configured)
+  if (leaderboardEnabled()) {
+    $('leaderboard-section').classList.remove('hidden');
+    const nameInput = $('name-input');
+    nameInput.value = store.get(NAME_KEY, '');
+    nameInput.addEventListener('change', () => {
+      store.set(NAME_KEY, nameInput.value.trim().slice(0, 24));
+      publishScore();
+    });
+    fetchLeaderboard();
+  }
 
   window.addEventListener('resize', () => {
     computeLayout();

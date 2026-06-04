@@ -61,6 +61,7 @@
       </div>
       <div id="new-best-badge" class="new-best hidden">New Best! 🎉</div>
       <button id="play-again" class="play-again">Play Again</button>
+      <div id="leaderboard-go" class="leaderboard leaderboard-go hidden"></div>
       <div class="love-note">
         <div class="love-note-q">Want a break from the ads?</div>
         <div class="love-note-sign">Love, Michael</div>
@@ -89,6 +90,15 @@
       </div>
       <p class="setting-hint">Overlay a photo from your camera roll onto the blocks.</p>
       <input type="file" id="photo-input" accept="image/*" hidden />
+
+      <div id="leaderboard-section" class="leaderboard-section hidden">
+        <div class="setting-row">
+          <span class="setting-label">Your name</span>
+          <input id="name-input" class="setting-input" maxlength="24" placeholder="e.g. Michael" autocomplete="off" />
+        </div>
+        <div class="leaderboard-title">Leaderboard</div>
+        <div id="leaderboard" class="leaderboard"></div>
+      </div>
 
       <button id="settings-done" class="play-again">Done</button>
     </div>

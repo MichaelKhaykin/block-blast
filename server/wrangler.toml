@@ -1,0 +1,9 @@
+name = "block-blast-scores"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# KV namespace for storing scores. The `id` is filled in by the deploy step
+# (npx wrangler kv namespace create SCORES).
+[[kv_namespaces]]
+binding = "SCORES"
+id = "7e15911edcaa4784a53ed80ef0186ff8"

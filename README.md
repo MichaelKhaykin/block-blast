@@ -32,6 +32,26 @@ Android/Chrome: open the URL, then menu → **Install app** / **Add to Home scre
 | `manifest.webmanifest`, `sw.js` | PWA install + offline cache |
 | `icons/`, `favicon.svg` | App icons (regenerate with `tools/gen_icons.py`) |
 | `test/` | `engine.test.mjs` (logic) + `ui.smoke.mjs` (headless Chrome) |
+| `server/` | Cloudflare Worker backing the shared leaderboard (see below) |
+
+## Shared leaderboard (optional)
+
+A tiny Cloudflare Worker (`server/worker.js`) stores each player's best score in
+Workers KV and serves it with open CORS. The game reads/writes it from
+`LEADERBOARD_URL` in `app.js`; set that to your Worker URL to enable the
+Leaderboard in Settings + the game-over screen (empty = feature hidden).
+
+Deploy / redeploy the Worker:
+
+```bash
+npx wrangler login          # one-time
+bash server/deploy.sh       # creates the KV namespace (first run) and deploys
+# paste the printed https://…workers.dev URL into LEADERBOARD_URL in app.js
+```
+
+Each device sets its display name in ⚙ Settings; best scores sync between
+devices. It's an open endpoint (fine for a private game) — add a shared passcode
+if you want to lock it down.
 
 ## Develop & test
 

@@ -157,6 +157,10 @@ async function main() {
 
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
+    // keep the test hermetic: block the live leaderboard endpoint so the app's
+    // fetch fails gracefully instead of depending on the network.
+    await cdp.send('Network.enable');
+    await cdp.send('Network.setBlockedURLs', { urls: ['*workers.dev*'] });
 
     const loaded = new Promise((res) => cdp.on((m) => m === 'Page.loadEventFired' && res()));
     await cdp.send('Page.navigate', { url });

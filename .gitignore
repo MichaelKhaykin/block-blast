@@ -8,3 +8,6 @@ tools/icon-maskable.html
 .DS_Store
 *.log
 node_modules/
+
+# wrangler (cloudflare worker) local state
+server/.wrangler/
