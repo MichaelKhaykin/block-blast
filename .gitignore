@@ -1,0 +1,10 @@
+# build artifacts from icon generation (regenerate with tools/gen_icons.py)
+tools/icon-src.svg
+tools/icon.html
+tools/icon-maskable-src.svg
+tools/icon-maskable.html
+
+# os / editor cruft
+.DS_Store
+*.log
+node_modules/

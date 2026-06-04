@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Block Blast</title>
+  <meta name="description" content="A clean, ad-free Block Blast puzzle game." />
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#393074" id="theme-color-meta" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+
+  <!-- iOS standalone -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Block Blast" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle theme">
+        <span class="icon-moon">☾</span><span class="icon-sun">☀</span>
+      </button>
+
+      <div class="score-wrap">
+        <div class="best-score" aria-label="Best score">
+          <span class="crown" aria-hidden="true">♛</span>
+          <span id="best">0</span>
+        </div>
+        <div class="current-score" id="score" role="status" aria-live="polite" aria-label="Score">0</div>
+      </div>
+
+      <button id="restart-btn" class="icon-btn" aria-label="New game" title="New game">↻</button>
+    </header>
+
+    <main id="main">
+      <div id="board-wrap">
+        <div id="board" aria-label="Game board"></div>
+      </div>
+      <div id="tray" aria-label="Pieces"></div>
+    </main>
+  </div>
+
+  <!-- floating layers -->
+  <div id="combo-layer" aria-hidden="true"></div>
+  <div id="drag-layer" aria-hidden="true"></div>
+
+  <!-- screen-reader announcements (combos / clears) -->
+  <div id="sr-announce" class="sr-only" aria-live="polite"></div>
+
+  <!-- game over -->
+  <div id="overlay" class="overlay hidden" aria-hidden="true">
+    <div class="overlay-card">
+      <div class="overlay-title">Game Over</div>
+      <div class="overlay-scores">
+        <div><span class="label">Score</span><span id="final-score" class="value">0</span></div>
+        <div><span class="label">Best</span><span id="final-best" class="value">0</span></div>
+      </div>
+      <div id="new-best-badge" class="new-best hidden">New Best! 🎉</div>
+      <button id="play-again" class="play-again">Play Again</button>
+    </div>
+  </div>
+
+  <!-- install hint (shown once on iOS Safari, dismissible) -->
+  <div id="install-hint" class="install-hint hidden">
+    <span>Install: tap <b>Share</b> ⎙ then <b>Add to Home Screen</b></span>
+    <button id="install-dismiss" aria-label="Dismiss">✕</button>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
